@@ -1,9 +1,5 @@
 *.py[co]
 
-# Eclipse
-.project
-.pydevproject
-
 # Packages
 *.egg
 *.egg-info
