@@ -81,26 +81,68 @@ class Art(db.Model):
 
 class Unit3ChanHandler(Handler):
   def render_chan(self, title="", art="", error=""):
-    arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")
-    self.render("unit3chan.html", title=title, art=art, error=error, arts=arts)
+    arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")    
+    self.render("unit3chan.html", title=title, art=art,
+                error=error, arts=arts)
   def get(self):
     self.render_chan()
   def post(self):
     title = self.request.get("title")
-    art = self.request.get("art")
-    
+    art = self.request.get("art")            
+
     if title and art:
       newArt = Art(title=title, art=art)
       newArt.put()
       self.redirect("/unit3/chan")
     else:
       error = "we need both a title and some artwork!"
-      self.render_chan("unit3chan.html", title, art, error)
+      self.render_chan(title, art, error)
+
+class BlogPost(db.Model):
+  subject = db.StringProperty(required=True)
+  content = db.TextProperty(required=True)
+  created = db.DateTimeProperty(auto_now_add=True)
+
+class Unit3BlogHandler(Handler):
+  def render_blog(self):    
+    query = db.GqlQuery("SELECT * FROM BlogPost ORDER BY created DESC")
+    posts = query.fetch(10)    
+    self.render("unit3blog.html", posts=posts)
+  def get(self):
+    self.render_blog()
+
+class Unit3NewPostHandler(Handler):
+  def render_newpost(self, subject="", content="", error=""):
+    self.render("unit3newpost.html", subject=subject, content=content, error=error)
+  def get(self):
+    self.render_newpost()
+  def post(self):
+    subject = self.request.get("subject")
+    content = self.request.get("content")            
+
+    if subject and content:
+      new_post = BlogPost(subject=subject, content=content)
+      new_post.put()
+      new_post_id = new_post.key()
+      self.redirect("/unit3/blog/%s" % new_post_id)
+    else:
+      error = "subject and content, please!"
+      self.render_newpost(subject, content, error)
+
+class Unit3PostHandler(Handler):
+  def render_post(self, subject="", created="", content=""):
+    self.render("unit3post.html", subject=subject, created=created, content=content)
+  def get(self, post_key):
+    post = db.get(post_key)
+    self.render_post(post.subject, post.created, post.content)
       
 app = webapp2.WSGIApplication([('/', HomeHandler),
                                ('/unit1/hello', Unit1Handler),
                                ('/unit2/rot13', Unit2Rot13Handler),
                                ('/unit2/signup', Unit2SignupHandler),
                                ('/unit2/welcome', Unit2WelcomeHandler),
-                               ('/unit3/chan', Unit3ChanHandler)],
+                               ('/unit3/chan', Unit3ChanHandler),
+                               ('/unit3/blog', Unit3BlogHandler),
+                               ('/unit3/blog/newpost', Unit3NewPostHandler),
+                               ('/unit3/blog/(.*)', Unit3PostHandler)],
                               debug=True)

@@ -7,6 +7,7 @@
 
 <style type="text/css">
 body {
+	position: relative;
 	font-family: sans-serif;
 	width: 800px;
 	margin: 0 auto;
@@ -72,10 +73,12 @@ hr {
 		<input type="submit">
 	</form>
 
+	<hr>
+
 	{% for art in arts %}
 	<div class="art">
 		<div class="art-title">{{art.title}}</div>
-		<div class="art-body">{{art.art}}</div>
+		<pre class="art-body">{{art.art}}</pre>
 	</div>
 	{% endfor %}
 </body>
