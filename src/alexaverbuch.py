@@ -1,13 +1,27 @@
-import re
 import os
 
 import webapp2
 import jinja2
 from google.appengine.ext import db
 
+import secutils
+import exercises
+import formutils
+
 template_dir = os.path.join(os.path.dirname('templates/'))
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
+
+class BlogPost(db.Model):
+  subject = db.StringProperty(required=True)
+  content = db.TextProperty(required=True)
+  created = db.DateTimeProperty(auto_now_add=True)
+
+class User(db.Model):
+  username = db.StringProperty(required=True)
+  password = db.StringProperty(required=True)
+  email = db.EmailProperty(required=False)
+  created = db.DateTimeProperty(auto_now_add=True)
 
 class Handler(webapp2.RequestHandler):
   def write(self, *a, **kw):
@@ -18,35 +32,28 @@ class Handler(webapp2.RequestHandler):
   def render(self, template, **kw):
     self.write(self.render_str(template, **kw))
 
-class HomeHandler(Handler):
-  def get(self):    
-    self.render("home.html")      
+class BlogSignupHandler(Handler):
+  def new_user(self, user_username, user_password, user_email):
+    q = db.GqlQuery("SELECT * FROM User " + 
+                    "WHERE username = :1",
+                    user_username)
+    results = q.fetch(1)
+    if results.__len__() > 0:
+      # user exists
+      return None
+    else:
+      # create new user
+      secure_password = secutils.make_pw_hash(user_username, user_password)
+      newUser = User(username=user_username, password=secure_password) 
+      if user_email:
+        newUser.email = user_email
+      newUser.put()
+      return newUser
 
-class Unit1Handler(Handler):
-  def get(self):
-#    self.write("Hello, Udacity!")
-    self.response.headers['Content-Type'] = 'text/plain'
-    self.response.out.write("Hello, Udacity!")      
-
-class Unit2Rot13Handler(Handler):
-  def render_rot13(self, text=""):
-    self.render("unit2rot13.html", text=text)
-  def get(self):
-    self.render_rot13()
-  def post(self):
-    text = self.request.get('text')
-    text = text.encode("rot13")
-    self.render_rot13(text)
-    
-username_re = re.compile('^[a-zA-Z0-9_-]{3,20}$')
-password_re = re.compile('^.{3,20}$')
-email_re = re.compile('^[\S]+@[\S]+\.[\S]+$')
-
-class Unit2SignupHandler(Handler):
   def render_signup(self, username="", username_error="",
-                 password_error="", verify_error="", email="",
-                 email_error=""):
-    self.render("unit2signup.html", username=username,
+                    password_error="", verify_error="", email="",
+                    email_error=""):
+    self.render("blog_signup.html", username=username,
                 username_error=username_error, password_error=password_error,
                 verify_error=verify_error, email=email, email_error=email_error)
   def get(self):
@@ -56,64 +63,94 @@ class Unit2SignupHandler(Handler):
     user_password = self.request.get('password')
     user_verify = self.request.get('verify')
     user_email = self.request.get('email')
-    username_error = "" if username_re.match(user_username) else "That's not a valid username."
-    password_error = "" if password_re.match(user_password) else "That wasn't a valid password."
+    
+#    username_error = "" if username_re.match(user_username) else "That's not a valid username."
+#    password_error = "" if password_re.match(user_password) else "That wasn't a valid password."
+#    verify_error = "" if (user_password == user_verify or (not password_error == "")) else "Your passwords didn't match."
+#    email_error = "" if (user_email == "" or email_re.match(user_email)) else "That's not a valid email."
+
+    username_error = formutils.check_username(user_username, "That's not a valid username.")    
+    password_error = formutils.check_password(user_password, "That wasn't a valid password.")
     verify_error = "" if (user_password == user_verify or (not password_error == "")) else "Your passwords didn't match."
-    email_error = "" if (user_email == "" or email_re.match(user_email)) else "That's not a valid email."
-#    if ((username_error == "") and (password_error == "") and (verify_error == "") and (email_error == "")):
+    email_error = formutils.check_email(user_email, "That's not a valid email.") 
+    
+    if (not username_error) and (not self.new_user(user_username, user_password, user_email)):
+      username_error = "That user already exists."
+    
     if (not username_error) and (not password_error) and (not verify_error) and (not email_error):
-      self.redirect("/unit2/welcome?username=%s" % user_username)
+      secure_username = secutils.make_secure_val(str(user_username)) 
+      signed_username_cookie = "user_id=%s; Path=/" % secure_username 
+      self.response.headers.add("Set-Cookie", str(signed_username_cookie))
+      self.redirect("/blog/welcome")
     else:
       self.render_signup(user_username, username_error, password_error,
                          verify_error, user_email, email_error)
 
-class Unit2WelcomeHandler(Handler):
-  def render_welcome(self, username=""):
-    self.render("unit2welcome.html", username=username)
+class BlogLogoutHandler(Handler):
   def get(self):
-    username = self.request.get("username")
-    self.render_welcome(username)
+    self.response.headers.add("Set-Cookie", "user_id=; Path=/")
+    self.redirect("/blog/signup")
 
-class Art(db.Model):
-  title = db.StringProperty(required=True)
-  art = db.TextProperty(required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
-
-class Unit3ChanHandler(Handler):
-  def render_chan(self, title="", art="", error=""):
-    arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")    
-    self.render("unit3chan.html", title=title, art=art,
-                error=error, arts=arts)
+class BlogLoginHandler(Handler):
+  def valid_user(self, user_username, user_password):
+    q = db.GqlQuery("SELECT * FROM User " + 
+                    "WHERE username = :1",
+                    user_username)        
+    results = q.fetch(1)        
+    if results.__len__() == 0:
+      # no such user
+      return None
+    else:    
+      # user exists
+      user = results[0]
+      return secutils.check_pw_hash(user_username, user_password, user.password)      
+  def render_login(self, error=""):
+    self.render("blog_login.html", error=error)
   def get(self):
-    self.render_chan()
+    self.render_login()
   def post(self):
-    title = self.request.get("title")
-    art = self.request.get("art")            
+    user_username = self.request.get('username')
+    user_password = self.request.get('password')
 
-    if title and art:
-      newArt = Art(title=title, art=art)
-      newArt.put()
-      self.redirect("/unit3/chan")
+#    invalid_username_format = not username_re.match(user_username)
+#    invalid_password_format = not password_re.match(user_password)
+#    invalid_user = not self.valid_user(user_username, user_password)
+
+    # UGLY, FIX SO FORMUTILS EXPOSES NO PUBLIC VARIABLES
+    invalid_username_format = not formutils.username_re.match(user_username)
+    invalid_password_format = not formutils.password_re.match(user_password)
+    invalid_user = not self.valid_user(user_username, user_password)
+
+    if invalid_username_format or invalid_password_format or invalid_user:       
+      self.render_login(error="Invalid login.")
     else:
-      error = "we need both a title and some artwork!"
-      self.render_chan(title, art, error)
+      secure_username = secutils.make_secure_val(str(user_username))
+      signed_username_cookie = "user_id=%s; Path=/" % secure_username
+      self.response.headers.add("Set-Cookie", str(signed_username_cookie))
+      self.redirect("/blog/welcome")
 
-class BlogPost(db.Model):
-  subject = db.StringProperty(required=True)
-  content = db.TextProperty(required=True)
-  created = db.DateTimeProperty(auto_now_add=True)
+class BlogWelcomeHandler(Handler):
+  def render_welcome(self, username=""):
+    self.render("blog_welcome.html", username=username)
+  def get(self):
+    secure_username = self.request.cookies.get("user_id")
+    if secure_username:
+      username = secutils.extract_secure_val(secure_username)
+      self.render_welcome(username)
+    else:
+      self.redirect("/blog/signup")
 
-class Unit3BlogHandler(Handler):
+class BlogHandler(Handler):
   def render_blog(self):    
     query = db.GqlQuery("SELECT * FROM BlogPost ORDER BY created DESC")
     posts = query.fetch(10)    
-    self.render("unit3blog.html", posts=posts)
+    self.render("blog.html", posts=posts)
   def get(self):
     self.render_blog()
 
-class Unit3NewPostHandler(Handler):
+class BlogNewPostHandler(Handler):
   def render_newpost(self, subject="", content="", error=""):
-    self.render("unit3newpost.html", subject=subject, content=content, error=error)
+    self.render("blog_newpost.html", subject=subject, content=content, error=error)
   def get(self):
     self.render_newpost()
   def post(self):
@@ -124,25 +161,30 @@ class Unit3NewPostHandler(Handler):
       new_post = BlogPost(subject=subject, content=content)
       new_post.put()
       new_post_id = new_post.key()
-      self.redirect("/unit3/blog/%s" % new_post_id)
+      self.redirect("/blog/%s" % new_post_id)
     else:
       error = "subject and content, please!"
       self.render_newpost(subject, content, error)
 
-class Unit3PostHandler(Handler):
+class BlogPostHandler(Handler):
   def render_post(self, subject="", created="", content=""):
-    self.render("unit3post.html", subject=subject, created=created, content=content)
+    self.render("blog_post.html", subject=subject, created=created, content=content)
   def get(self, post_key):
     post = db.get(post_key)
     self.render_post(post.subject, post.created, post.content)
       
-app = webapp2.WSGIApplication([('/', HomeHandler),
-                               ('/unit1/hello', Unit1Handler),
-                               ('/unit2/rot13', Unit2Rot13Handler),
-                               ('/unit2/signup', Unit2SignupHandler),
-                               ('/unit2/welcome', Unit2WelcomeHandler),
-                               ('/unit3/chan', Unit3ChanHandler),
-                               ('/unit3/blog', Unit3BlogHandler),
-                               ('/unit3/blog/newpost', Unit3NewPostHandler),
-                               ('/unit3/blog/(.*)', Unit3PostHandler)],
+app = webapp2.WSGIApplication([# Exercises
+                               ('/', exercises.HomeHandler),
+                               ('/unit1/hello', exercises.Unit1Handler),
+                               ('/unit2/rot13', exercises.Unit2Rot13Handler),
+                               ('/unit3/chan', exercises.Unit3ChanHandler),
+                               ('/unit4/visits', exercises.Unit4VisitsHandler),
+                               # Blog                               
+                               ('/blog', BlogHandler),
+                               ('/blog/signup', BlogSignupHandler),
+                               ('/blog/welcome', BlogWelcomeHandler),
+                               ('/blog/login', BlogLoginHandler),
+                               ('/blog/logout', BlogLogoutHandler),
+                               ('/blog/newpost', BlogNewPostHandler),
+                               ('/blog/(.*)', BlogPostHandler)],
                               debug=True)

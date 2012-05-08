@@ -137,7 +137,7 @@ username_re = re.compile('^[a-zA-Z0-9_-]{3,20}$')
 password_re = re.compile('^.{3,20}$')
 email_re = re.compile('^[\S]+@[\S]+\.[\S]+$')
 
-class Unit2SignupHandler(webapp2.RequestHandler):
+class BlogSignupHandler(webapp2.RequestHandler):
   def write_form(self, username="", username_error="",
                  password_error="", verify_error="",
                  email="", email_error=""):
@@ -168,7 +168,7 @@ class Unit2SignupHandler(webapp2.RequestHandler):
     else:
       self.write_form(user_username, username_error, password_error, verify_error, user_email, email_error)
       
-class Unit2WelcomeHandler(webapp2.RequestHandler):
+class BlogWelcomeHandler(webapp2.RequestHandler):
   def write_form(self, username=""):
     self.response.headers['Content-Type'] = 'text/html'
     self.response.out.write(unit2welcomeform % {"username": username})
@@ -179,6 +179,6 @@ class Unit2WelcomeHandler(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([('/', Home),
                                ('/unit1', Unit1Handler),
                                ('/unit2/rot13', Unit2Rot13Handler),
-                               ('/unit2/signup', Unit2SignupHandler),
-                               ('/unit2/welcome', Unit2WelcomeHandler)],
+                               ('/unit2/signup', BlogSignupHandler),
+                               ('/unit2/welcome', BlogWelcomeHandler)],
                               debug=True)
