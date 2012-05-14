@@ -1,5 +1,5 @@
 import re
-
+  
 username_re = re.compile('^[a-zA-Z0-9_-]{3,20}$')
 password_re = re.compile('^.{3,20}$')
 email_re = re.compile('^[\S]+@[\S]+\.[\S]+$')

@@ -14,6 +14,12 @@ body {
 	padding: 10px;
 }
 
+.map {
+	position: absolute;
+	right: 0;
+	top: 112px;
+}
+
 .error {
 	color: red;
 }
@@ -72,6 +78,10 @@ hr {
 
 		<input type="submit">
 	</form>
+
+	{% if img_url %}
+	<img class="map" alt="submitter coordinates map" src="{{img_url}}">
+	{% endif %}
 
 	<hr>
 
