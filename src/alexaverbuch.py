@@ -5,8 +5,10 @@ import jinja2
 from google.appengine.ext import db
 
 import secutils
-import exercises
 import formutils
+import jsonutils
+
+import exercises
 
 template_dir = os.path.join(os.path.dirname('templates/'))
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
@@ -16,6 +18,7 @@ class BlogPost(db.Model):
   subject = db.StringProperty(required=True)
   content = db.TextProperty(required=True)
   created = db.DateTimeProperty(auto_now_add=True)
+  last_modified = db.DateTimeProperty(auto_now=True)
 
 class User(db.Model):
   username = db.StringProperty(required=True)
@@ -31,6 +34,35 @@ class Handler(webapp2.RequestHandler):
     return t.render(params)
   def render(self, template, **kw):
     self.write(self.render_str(template, **kw))
+  def debug(self, msg):
+    self.write("%s<br>" % msg)
+
+class BlogHandler(Handler):
+  def render_blog(self):    
+    query = db.GqlQuery("SELECT * "
+                        "FROM BlogPost "
+                        "ORDER BY created DESC")
+    posts = query.fetch(10)    
+    self.render("blog.html", posts=posts)
+  def get(self):
+    self.render_blog()
+    
+class BlogJSONHandler(Handler):
+  def get_posts(self):
+    posts = db.GqlQuery("SELECT * "
+                        "FROM BlogPost "
+                        "ORDER BY created DESC "
+                        "LIMIT 10")
+    # prevent query from being run multiple times        
+    return list(posts)
+  def get(self):    
+    # get blog content
+    posts = self.get_posts()    
+    # convert blog content to json
+    posts_json = jsonutils.posts_to_json(posts)
+    # send response as json
+    self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
+    self.write(posts_json)
 
 class BlogSignupHandler(Handler):
   def new_user(self, user_username, user_password, user_email):
@@ -63,15 +95,10 @@ class BlogSignupHandler(Handler):
     user_password = self.request.get('password')
     user_verify = self.request.get('verify')
     user_email = self.request.get('email')
-    
-#    username_error = "" if username_re.match(user_username) else "That's not a valid username."
-#    password_error = "" if password_re.match(user_password) else "That wasn't a valid password."
-#    verify_error = "" if (user_password == user_verify or (not password_error == "")) else "Your passwords didn't match."
-#    email_error = "" if (user_email == "" or email_re.match(user_email)) else "That's not a valid email."
 
     username_error = formutils.check_username(user_username, "That's not a valid username.")    
     password_error = formutils.check_password(user_password, "That wasn't a valid password.")
-    verify_error = "" if (user_password == user_verify or (not password_error == "")) else "Your passwords didn't match."
+    verify_error = "" if ((user_password == user_verify) or (not password_error == "")) else "Your passwords didn't match."
     email_error = formutils.check_email(user_email, "That's not a valid email.") 
     
     if (not username_error) and (not self.new_user(user_username, user_password, user_email)):
@@ -140,14 +167,6 @@ class BlogWelcomeHandler(Handler):
     else:
       self.redirect("/blog/signup")
 
-class BlogHandler(Handler):
-  def render_blog(self):    
-    query = db.GqlQuery("SELECT * FROM BlogPost ORDER BY created DESC")
-    posts = query.fetch(10)    
-    self.render("blog.html", posts=posts)
-  def get(self):
-    self.render_blog()
-
 class BlogNewPostHandler(Handler):
   def render_newpost(self, subject="", content="", error=""):
     self.render("blog_newpost.html", subject=subject, content=content, error=error)
@@ -172,6 +191,13 @@ class BlogPostHandler(Handler):
   def get(self, post_key):
     post = db.get(post_key)
     self.render_post(post.subject, post.created, post.content)
+
+class BlogPostJSONHandler(Handler):
+  def get(self, post_key):
+    post = db.get(post_key)
+    post_json = jsonutils.post_to_json(post)
+    self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
+    self.write(post_json)
       
 app = webapp2.WSGIApplication([# Exercises
                                ('/', exercises.HomeHandler),
@@ -181,10 +207,12 @@ app = webapp2.WSGIApplication([# Exercises
                                ('/unit4/visits', exercises.Unit4VisitsHandler),
                                # Blog                               
                                ('/blog', BlogHandler),
+                               ('/blog/.json', BlogJSONHandler),
                                ('/blog/signup', BlogSignupHandler),
                                ('/blog/welcome', BlogWelcomeHandler),
                                ('/blog/login', BlogLoginHandler),
                                ('/blog/logout', BlogLogoutHandler),
                                ('/blog/newpost', BlogNewPostHandler),
+                               ('/blog/(.*).json', BlogPostJSONHandler),
                                ('/blog/(.*)', BlogPostHandler)],
                               debug=True)

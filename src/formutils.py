@@ -6,18 +6,18 @@ email_re = re.compile('^[\S]+@[\S]+\.[\S]+$')
 
 def check_username(username, error="Invalid username"):
   if username_re.match(username):
-    return None
+    return ""
   else:
     return error
 
 def check_password(password, error="Invalid password"):
   if password_re.match(password):
-    return None
+    return ""
   else:
     return error
 
 def check_email(email, error="Invalid email"):
-  if email_re.match(email):
-    return None
+  if (email == "") or email_re.match(email):
+    return ""
   else:
     return error

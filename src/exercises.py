@@ -90,7 +90,7 @@ class Unit3ChanHandler(Handler):
                        "ORDER BY created DESC "
                        "LIMIT 10")
     
-    # present query from being run multiple times    
+    # prevent query from being run multiple times    
     arts = list(arts)
         
     # points = []
