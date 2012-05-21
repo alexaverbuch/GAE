@@ -1,9 +1,11 @@
 import os
 import urllib2
+import logging
 from xml.dom import minidom
 
 import webapp2
 import jinja2
+from google.appengine.api import memcache
 from google.appengine.ext import db
 
 import secutils
@@ -12,7 +14,6 @@ from urllib2 import URLError
 template_dir = os.path.join(os.path.dirname("templates/"))
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
                                autoescape=True)
-
 
 IP_URL = "http://api.hostip.info/?ip="
 def get_coords(ip):
@@ -76,9 +77,11 @@ class Unit2Rot13Handler(Handler):
 
 art_key = db.Key.from_path("ASCIIChan", "arts")
 
-class Unit3ChanHandler(Handler):
-  def render_chan(self, title="", art="", error=""):
-#    arts = db.GqlQuery("SELECT * FROM Art ORDER BY created DESC")    
+def top_arts(update=False):
+  key = 'top'  
+  arts = memcache.get(key)
+  if (arts is None) or update:
+    logging.error("DB QUERY")
 #    arts = db.GqlQuery("SELECT * "
 #                       "FROM Art "
 #                       "WHERE ANCESTOR IS :1 "
@@ -89,14 +92,15 @@ class Unit3ChanHandler(Handler):
                        "FROM Art "
                        "ORDER BY created DESC "
                        "LIMIT 10")
-    
     # prevent query from being run multiple times    
     arts = list(arts)
+    memcache.set(key, arts)
+  return arts
+
+class Unit3ChanHandler(Handler):
+  def render_chan(self, title="", art="", error=""):
+    arts = top_arts()
         
-    # points = []
-    # for art in arts:
-    #   if art.coords:
-    #     points.append(art.coords)
     points = filter(None, (art.coords for art in arts))      
     
     img_url = None
@@ -108,9 +112,8 @@ class Unit3ChanHandler(Handler):
   def get(self):
     # repr <- makes printing Python types HTML friendly
     # remote_addr <- requesting IP address
-#    self.write(self.request.remote_addr)
-#    self.write("<br>")
-#    self.write(repr(get_coords(self.request.remote_addr)))
+    # self.write(self.request.remote_addr)
+    # self.write(repr(get_coords(self.request.remote_addr)))
     self.render_chan()
   def post(self):
     title = self.request.get("title")
@@ -122,6 +125,7 @@ class Unit3ChanHandler(Handler):
       if user_coods:
         newArt.coords = user_coods
       newArt.put()
+      top_arts(True)
       self.redirect("/unit3/chan")
     else:
       error = "we need both a title and some artwork!"
