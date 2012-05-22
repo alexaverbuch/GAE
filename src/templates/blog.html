@@ -2,28 +2,37 @@
 <html>
 
 <head>
+<link type="text/css" rel="stylesheet" href="/css/main.css" />
 <title>Blog</title>
 </head>
 
 <body>
 	<a href="/blog" class="main-title"> Blog </a>
 
+	<div class="login-area">
+		<a class="login-link" href="/blog/login">login</a> | <a
+			class="login-link" href="/blog/signup">signup</a>
+	</div>
+
 	<div id="content">
 
-		<hr>
+		<!-- <hr> -->
 		{% for post in posts %}
 		<div class="post">
 			<div class="post-heading">
-				<div class="post-title">{{post.subject}}</div>
+				<a href="/blog/{{post.key()}}" class="post-title">{{post.subject}}</a>
 				<div class="post-date">{{post.created}}</div>
 			</div>
 			<div class="post-content">{{post.content}}</div>
 		</div>
-		<br>
-		<hr>
+		<br> <br>
+		<!-- <hr> -->
 		{% endfor %}
 
+		<div class="age">queried {{seconds_since_query}} seconds ago</div>
+
 	</div>
+
 </body>
 
 </html>

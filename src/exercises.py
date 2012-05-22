@@ -8,7 +8,7 @@ import jinja2
 from google.appengine.api import memcache
 from google.appengine.ext import db
 
-import secutils
+import sec_utils
 from urllib2 import URLError
 
 template_dir = os.path.join(os.path.dirname("templates/"))
@@ -79,6 +79,7 @@ art_key = db.Key.from_path("ASCIIChan", "arts")
 
 def top_arts(update=False):
   key = 'top'  
+  
   arts = memcache.get(key)
   if (arts is None) or update:
     logging.error("DB QUERY")
@@ -139,12 +140,12 @@ class Unit4VisitsHandler(Handler):
     visits_cookie_str = self.request.cookies.get("visits")
 
     if visits_cookie_str != None:
-      visits_val = secutils.extract_secure_val(visits_cookie_str)
+      visits_val = sec_utils.extract_secure_val(visits_cookie_str)
       if visits_val:
         visits = int(visits_val)
     
     visits += 1
-    new_visits_cookie_str = secutils.make_secure_val(str(visits))
+    new_visits_cookie_str = sec_utils.make_secure_val(str(visits))
     self.response.headers.add("Set-Cookie", "visits=%s" % new_visits_cookie_str)
         
     if visits > 20:

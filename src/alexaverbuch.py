@@ -1,12 +1,16 @@
 import os
+import logging
+import math
+import time
 
 import webapp2
 import jinja2
 from google.appengine.ext import db
 
-import secutils
-import formutils
-import jsonutils
+import sec_utils
+import form_utils
+import json_utils
+import memcache_utils
 
 import exercises
 
@@ -37,18 +41,35 @@ class Handler(webapp2.RequestHandler):
   def debug(self, msg):
     self.write("%s<br>" % msg)
 
+def get_post(self, key, update=False):
+  def fun_miss():
+    try:
+      post = db.get(key)
+    except db.BadKeyError:
+      post = None 
+    return (time.time(), post)  
+#  return memcache_utils.get(key, fun_miss, update)
+  return memcache_utils.get_cas(key, fun_miss, update)
+
+def get_top_posts(self, update=False):
+  key = 'top_posts'
+  def fun_miss():
+    posts = db.GqlQuery("SELECT * FROM BlogPost ORDER BY created DESC LIMIT 10")
+    return (time.time(), list(posts))  
+#  return memcache_utils.get(key, fun_miss, update)
+  return memcache_utils.get_cas(key, fun_miss, update)
+
 class BlogHandler(Handler):
-  def render_blog(self):    
-    query = db.GqlQuery("SELECT * "
-                        "FROM BlogPost "
-                        "ORDER BY created DESC")
-    posts = query.fetch(10)    
-    self.render("blog.html", posts=posts)
+  def render_blog(self):
+    (time_queried, posts) = get_top_posts(self)
+    seconds_since_query = int(math.floor(time.time() - time_queried))
+    self.render("blog.html", posts=posts, seconds_since_query=seconds_since_query)
   def get(self):
     self.render_blog()
     
 class BlogJSONHandler(Handler):
   def get_posts(self):
+    # TODO use get_top_posts()
     posts = db.GqlQuery("SELECT * "
                         "FROM BlogPost "
                         "ORDER BY created DESC "
@@ -59,7 +80,7 @@ class BlogJSONHandler(Handler):
     # get blog content
     posts = self.get_posts()    
     # convert blog content to json
-    posts_json = jsonutils.posts_to_json(posts)
+    posts_json = json_utils.posts_to_json(posts)
     # send response as json
     self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
     self.write(posts_json)
@@ -75,7 +96,7 @@ class BlogSignupHandler(Handler):
       return None
     else:
       # create new user
-      secure_password = secutils.make_pw_hash(user_username, user_password)
+      secure_password = sec_utils.make_pw_hash(user_username, user_password)
       newUser = User(username=user_username, password=secure_password) 
       if user_email:
         newUser.email = user_email
@@ -96,16 +117,16 @@ class BlogSignupHandler(Handler):
     user_verify = self.request.get('verify')
     user_email = self.request.get('email')
 
-    username_error = formutils.check_username(user_username, "That's not a valid username.")    
-    password_error = formutils.check_password(user_password, "That wasn't a valid password.")
+    username_error = form_utils.check_username(user_username, "That's not a valid username.")    
+    password_error = form_utils.check_password(user_password, "That wasn't a valid password.")
     verify_error = "" if ((user_password == user_verify) or (not password_error == "")) else "Your passwords didn't match."
-    email_error = formutils.check_email(user_email, "That's not a valid email.") 
+    email_error = form_utils.check_email(user_email, "That's not a valid email.") 
     
     if (not username_error) and (not self.new_user(user_username, user_password, user_email)):
       username_error = "That user already exists."
     
     if (not username_error) and (not password_error) and (not verify_error) and (not email_error):
-      secure_username = secutils.make_secure_val(str(user_username)) 
+      secure_username = sec_utils.make_secure_val(str(user_username)) 
       signed_username_cookie = "user_id=%s; Path=/" % secure_username 
       self.response.headers.add("Set-Cookie", str(signed_username_cookie))
       self.redirect("/blog/welcome")
@@ -130,7 +151,7 @@ class BlogLoginHandler(Handler):
     else:    
       # user exists
       user = results[0]
-      return secutils.check_pw_hash(user_username, user_password, user.password)      
+      return sec_utils.check_pw_hash(user_username, user_password, user.password)      
   def render_login(self, error=""):
     self.render("blog_login.html", error=error)
   def get(self):
@@ -139,19 +160,15 @@ class BlogLoginHandler(Handler):
     user_username = self.request.get('username')
     user_password = self.request.get('password')
 
-#    invalid_username_format = not username_re.match(user_username)
-#    invalid_password_format = not password_re.match(user_password)
-#    invalid_user = not self.valid_user(user_username, user_password)
-
     # UGLY, FIX SO FORMUTILS EXPOSES NO PUBLIC VARIABLES
-    invalid_username_format = not formutils.username_re.match(user_username)
-    invalid_password_format = not formutils.password_re.match(user_password)
+    invalid_username_format = not form_utils.username_re.match(user_username)
+    invalid_password_format = not form_utils.password_re.match(user_password)
     invalid_user = not self.valid_user(user_username, user_password)
 
     if invalid_username_format or invalid_password_format or invalid_user:       
       self.render_login(error="Invalid login.")
     else:
-      secure_username = secutils.make_secure_val(str(user_username))
+      secure_username = sec_utils.make_secure_val(str(user_username))
       signed_username_cookie = "user_id=%s; Path=/" % secure_username
       self.response.headers.add("Set-Cookie", str(signed_username_cookie))
       self.redirect("/blog/welcome")
@@ -162,7 +179,7 @@ class BlogWelcomeHandler(Handler):
   def get(self):
     secure_username = self.request.cookies.get("user_id")
     if secure_username:
-      username = secutils.extract_secure_val(secure_username)
+      username = sec_utils.extract_secure_val(secure_username)
       self.render_welcome(username)
     else:
       self.redirect("/blog/signup")
@@ -175,10 +192,11 @@ class BlogNewPostHandler(Handler):
   def post(self):
     subject = self.request.get("subject")
     content = self.request.get("content")            
-
     if subject and content:
       new_post = BlogPost(subject=subject, content=content)
       new_post.put()
+      get_post(self, str(new_post.key()))
+      get_top_posts(self, True)
       new_post_id = new_post.key()
       self.redirect("/blog/%s" % new_post_id)
     else:
@@ -186,18 +204,27 @@ class BlogNewPostHandler(Handler):
       self.render_newpost(subject, content, error)
 
 class BlogPostHandler(Handler):
-  def render_post(self, subject="", created="", content=""):
-    self.render("blog_post.html", subject=subject, created=created, content=content)
+  def render_post(self, post, seconds_since_query):
+    self.render("blog_post.html", post=post, seconds_since_query=seconds_since_query)
   def get(self, post_key):
-    post = db.get(post_key)
-    self.render_post(post.subject, post.created, post.content)
-
+    (time_queried, post) = get_post(self, post_key)
+    if post is None:
+      self.redirect("/blog")
+    else:
+      seconds_since_query = int(math.floor(time.time() - time_queried))
+      self.render_post(post, seconds_since_query)
 class BlogPostJSONHandler(Handler):
   def get(self, post_key):
+    # TODO memcache
     post = db.get(post_key)
-    post_json = jsonutils.post_to_json(post)
+    post_json = json_utils.post_to_json(post)
     self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
     self.write(post_json)
+
+class BlogFlushHandler(Handler):
+  def get(self):
+    memcache_utils.flush()
+    self.redirect("/blog")
       
 app = webapp2.WSGIApplication([# Exercises
                                ('/', exercises.HomeHandler),
@@ -208,6 +235,7 @@ app = webapp2.WSGIApplication([# Exercises
                                # Blog                               
                                ('/blog', BlogHandler),
                                ('/blog/.json', BlogJSONHandler),
+                               ('/blog/flush', BlogFlushHandler),
                                ('/blog/signup', BlogSignupHandler),
                                ('/blog/welcome', BlogWelcomeHandler),
                                ('/blog/login', BlogLoginHandler),
