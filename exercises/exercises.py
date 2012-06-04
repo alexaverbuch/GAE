@@ -8,7 +8,8 @@ import jinja2
 from google.appengine.api import memcache
 from google.appengine.ext import db
 
-import sec_utils
+from utils import sec_utils
+
 from urllib2 import URLError
 
 template_dir = os.path.join(os.path.dirname("templates/"))

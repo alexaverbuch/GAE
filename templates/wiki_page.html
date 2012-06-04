@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<link type="text/css" rel="stylesheet" href="/css/wiki.css" />
+<title>Wiki</title>
+</head>
+
+<body>
+	<div class="nav-area1">
+		{% if username %} <a class="nav-link"
+			href="/wiki/_edit{{title}}?v={{version}}">edit</a> | <a
+			class="nav-link" href="/wiki/_history{{title}}">history</a> {% else
+		%} <a class="nav-link" href="/wiki/_history{{title}}">history</a> {%
+		endif%}
+	</div>
+
+	<div class="nav-area2">
+		{% if username %} <a class="nav-link"
+			href="/wiki/logout?title={{title}}"> {{username}}(logout)</a> {% else
+		%} <a class="nav-link" href="/wiki/login">login</a> | <a
+			class="nav-link" href="/wiki/signup">signup</a> {% endif%}
+	</div>
+
+	<div id="content">
+		<div class="art">
+			<pre class="wiki-content">{{content}}</pre>
+		</div>
+	</div>
+</body>
+
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<link type="text/css" rel="stylesheet" href="/css/wiki.css" />
+<title>Wiki</title>
+</head>
+
+<body>
+	<div class="nav-area2">
+		{% if username %}
+		<!-- -->
+		<a class="nav-link" href="/wiki/logout?title={{title}}">
+			{{username}}(logout)</a>
+		<!-- -->
+		{% else %}
+		<!-- -->
+		<a class="nav-link" href="/wiki/login">login</a> | <a class="nav-link"
+			href="/wiki/signup">signup</a>
+		<!-- -->
+		{% endif%}
+	</div>
+
+	<div id="content">
+		{% for version in versions %}
+		<!-- -->
+		<div class="version">
+			<div class="version-date">{{version.created.strftime("%H:%M:%S %d %b %Y")}}</div>
+			<div class="version-content">{{version.content|truncate(length=100)}}</div>
+			<a href="/wiki{{version.title}}?v={{version.version}}"
+				class="version-view">view</a> <a
+				href="/wiki/_edit{{version.title}}?v={{version.version}}"
+				class="version-edit">edit</a>
+		</div>
+		<br>
+		<!-- -->
+		{% endfor %}
+
+	</div>
+
+</body>
+
+</html>

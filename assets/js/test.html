@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="test.js"></script>
+<script type="text/javascript">
+	<!--
+	function changeText1Function() {
+		document.getElementById("demo").innerHTML="Text1: My First JavaScript Function";
+	};
+	//-->
+</script>
+</head>
+<body onload="startTime(); checkCookie();">
+
+	<h1>My First Web Page</h1>
+
+	<p id="demo">My First Paragraph</p>
+
+	<button onclick="clearFunction('Oops! The original text disappeared!')">Clear
+		Page</button>
+	<button type="button" onclick="changeText1Function()">Change
+		Text1</button>
+	<button type="button" onclick="alertFunction()">Alert</button>
+	<button type="button" onclick="confirmFunction()">Confirm</button>
+	<button type="button" onclick="promptFunction()">Prompt</button>
+	<input type="button" value="Exception" onclick="exceptionMessage()" />
+	<input type="button" value="Throw Exception" onclick="throwException()" />
+
+	<table>
+		<tr>
+			<td><input type="text" id="input" onkeyup="checkInput()"></td>
+			<td class="label" id="input_error"></td>
+		</tr>
+	</table>
+
+	<div id="txt">something</div>
+	<script type="text/javascript">
+		<!--
+		document.getElementById("demo").innerHTML="Text1: This text was changed by JS";
+		document.write("<p>Text2: This element was inserted by JS</p>");
+		function promptFunction() {
+			// writing from a function overwrites the page! 
+			var name = prompt("Please enter a value", "default value");
+			if (name != null && name != "")
+				document.write("<p>Value is " + name + "!</p>");
+		}
+		//-->		
+</script>
+
+	<div id="example"></div>
+
+	<script type="text/javascript">
+		txt = "<p>Browser CodeName: " + navigator.appCodeName + "</p>";
+		txt+= "<p>Browser Name: " + navigator.appName + "</p>";
+		txt+= "<p>Browser Version: " + navigator.appVersion + "</p>";
+		txt+= "<p>Cookies Enabled: " + navigator.cookieEnabled + "</p>";
+		txt+= "<p>Platform: " + navigator.platform + "</p>";
+		txt+= "<p>User-agent header: " + navigator.userAgent + "</p>";
+		
+		document.getElementById("example").innerHTML=txt;
+	</script>
+</body>
+</html>

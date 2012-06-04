@@ -7,12 +7,13 @@ import webapp2
 import jinja2
 from google.appengine.ext import db
 
-import sec_utils
-import form_utils
-import json_utils
-import memcache_utils
+from utils import sec_utils
+from utils import form_utils
+from utils import json_utils
+from utils import memcache_utils
 
-import exercises
+from exercises import exercises
+from wiki import wiki 
 
 template_dir = os.path.join(os.path.dirname('templates/'))
 jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir),
@@ -225,7 +226,7 @@ class BlogFlushHandler(Handler):
   def get(self):
     memcache_utils.flush()
     self.redirect("/blog")
-      
+
 app = webapp2.WSGIApplication([# Exercises
                                ('/', exercises.HomeHandler),
                                ('/unit1/hello', exercises.Unit1Handler),
@@ -242,5 +243,14 @@ app = webapp2.WSGIApplication([# Exercises
                                ('/blog/logout', BlogLogoutHandler),
                                ('/blog/newpost', BlogNewPostHandler),
                                ('/blog/(.*).json', BlogPostJSONHandler),
-                               ('/blog/(.*)', BlogPostHandler)],
+                               ('/blog/(.*)', BlogPostHandler),
+                               # Wiki
+                               ('/wiki', wiki.WikiHandler),
+                               ('/wiki/signup', wiki.WikiSignupHandler),
+                               ('/wiki/welcome', wiki.WikiWelcomeHandler),
+                               ('/wiki/login', wiki.WikiLoginHandler),
+                               ('/wiki/logout', wiki.WikiLogoutHandler),
+                               ('/wiki/_edit(/(?:[a-zA-Z0-9_-]+/?)*)', wiki.WikiEditHandler),
+                               ('/wiki/_history(/(?:[a-zA-Z0-9_-]+/?)*)', wiki.WikiHistoryHandler),
+                               ('/wiki(/(?:[a-zA-Z0-9_-]+/?)*)', wiki.WikiPageHandler)],
                               debug=True)

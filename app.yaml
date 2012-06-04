@@ -6,17 +6,26 @@ threadsafe: true
 
 handlers:
 - url: /css
-  static_dir: css
+  static_dir: assets/css
+
+- url: /img
+  static_dir: assets/img
+
+- url: /js
+  static_dir: assets/js
   
+- url: /favicon.ico
+  static_files: assets/img/favicon.ico
+  upload: assets/img/favicon.ico
+  
+
 - url: /.*
   script: alexaverbuch.app
 
-- url: /favicon\.ico
-  static_files: favicon.ico
-  upload: favicon\.ico
-
 libraries:
+
 - name: webapp2
   version: "2.5.1"
+  
 - name: jinja2
   version: "2.6"
