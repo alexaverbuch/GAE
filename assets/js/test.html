@@ -2,6 +2,7 @@
 <html>
 <head>
 <script type="text/javascript" src="test.js"></script>
+<script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript">
 	<!--
 	function changeText1Function() {
@@ -9,12 +10,22 @@
 	};
 	//-->
 </script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $("button").click(function(){
+    $("p").hide();
+  });
+});
+</script>
+
 </head>
 <body onload="startTime(); checkCookie();">
 
 	<h1>My First Web Page</h1>
 
 	<p id="demo">My First Paragraph</p>
+
+	<button>Plain</button>
 
 	<button onclick="clearFunction('Oops! The original text disappeared!')">Clear
 		Page</button>
@@ -59,5 +70,6 @@
 		
 		document.getElementById("example").innerHTML=txt;
 	</script>
+
 </body>
 </html>

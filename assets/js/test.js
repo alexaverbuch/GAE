@@ -91,10 +91,7 @@ function setCookie(c_name, value, exdays) {
 	exdate.setDate(exdate.getDate() + exdays);
 	var c_value = escape(value)
 			+ ((exdays == null) ? "" : "; expires=" + exdate.toUTCString());
-	// alert(c_name + "=" + c_value);
-	// Does not seem to work
 	document.cookie = c_name + "=" + c_value;
-	// alert(getCookie(c_name));
 };
 
 function getCookie(c_name) {
@@ -114,7 +111,9 @@ function checkCookie() {
 	if (username != null && username != "") {
 		alert("Welcome again " + username);
 	} else {
-		username = prompt("Please enter your name:", "");
+		// TODO uncomment
+		// username = prompt("Please enter your name:", "");
+		username = "alex";
 		if (username != null && username != "") {
 			setCookie("username", username, 365);
 		}
